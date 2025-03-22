@@ -6,13 +6,14 @@ def indent(text, level):
     return '  ' * level + text
 
 class Service:
-    def __init__(self, container_name, image, entrypoint, environment, networks, depends_on):
+    def __init__(self, container_name, image, entrypoint, environment, networks, depends_on, volumes):
         self.container_name = container_name
         self.image = image
         self.entrypoint = entrypoint
         self.environment = environment
         self.networks = networks
-        self.depends_on = depends_on    
+        self.depends_on = depends_on
+        self.volumes = volumes
 
     def __str__(self):
         lines = []
@@ -36,6 +37,11 @@ class Service:
             for dep in self.depends_on:
                 lines.append(indent(f"- {dep}", 3))
         
+        if self.volumes:
+            lines.append(indent("volumes:", 2))
+            for key, value in self.volumes.items():
+                lines.append(indent(f"- {key}:{value}", 3))
+
         return '\n'.join(lines) + '\n'
 
 class Network:
@@ -76,7 +82,8 @@ def generate_docker_compose(output_file, n_clients):
         entrypoint="python3 /main.py",
         environment={"PYTHONUNBUFFERED": "1", "LOGGING_LEVEL": "DEBUG"},
         networks=["testing_net"],
-        depends_on=[]
+        depends_on=[],
+        volumes={"./server/config.ini": "/config.ini"}
     )
 
     client_services = [
@@ -86,7 +93,8 @@ def generate_docker_compose(output_file, n_clients):
             entrypoint="/client",
             environment={"CLI_ID": f"{i}", "CLI_LOG_LEVEL": "DEBUG"},
             networks=["testing_net"],
-            depends_on=["server"]
+            depends_on=["server"],
+            volumes={"./client/config.yaml": "/config.yaml"}
         ) for i in range(1, n_clients + 1)
     ]
 

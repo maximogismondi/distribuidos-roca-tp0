@@ -2,11 +2,22 @@ import sys
 
 NAME = "tp0"
 
+
 def indent(text, level):
-    return '  ' * level + text
+    return "  " * level + text
+
 
 class Service:
-    def __init__(self, container_name, image, entrypoint, environment, networks, depends_on, volumes):
+    def __init__(
+        self,
+        container_name,
+        image,
+        entrypoint,
+        environment,
+        networks,
+        depends_on,
+        volumes,
+    ):
         self.container_name = container_name
         self.image = image
         self.entrypoint = entrypoint
@@ -21,28 +32,29 @@ class Service:
         lines.append(indent(f"container_name: {self.container_name}", 2))
         lines.append(indent(f"image: {self.image}", 2))
         lines.append(indent(f"entrypoint: {self.entrypoint}", 2))
-        
+
         if self.environment:
             lines.append(indent("environment:", 2))
             for key, value in self.environment.items():
                 lines.append(indent(f"- {key}={value}", 3))
-        
+
         if self.networks:
             lines.append(indent("networks:", 2))
             for network in self.networks:
                 lines.append(indent(f"- {network}", 3))
-        
+
         if self.depends_on:
             lines.append(indent("depends_on:", 2))
             for dep in self.depends_on:
                 lines.append(indent(f"- {dep}", 3))
-        
+
         if self.volumes:
             lines.append(indent("volumes:", 2))
             for key, value in self.volumes.items():
                 lines.append(indent(f"- {key}:{value}", 3))
 
-        return '\n'.join(lines) + '\n'
+        return "\n".join(lines) + "\n"
+
 
 class Network:
     def __init__(self, network_name, driver, subnets):
@@ -58,8 +70,9 @@ class Network:
         lines.append(indent("config:", 3))
         for subnet in self.subnets:
             lines.append(indent(f"- subnet: {subnet}", 4))
-        
-        return '\n'.join(lines) + '\n'
+
+        return "\n".join(lines) + "\n"
+
 
 def get_args():
     try:
@@ -74,8 +87,8 @@ def get_args():
 
     return output_file, n_clients
 
-def generate_docker_compose(output_file, n_clients):
-    
+
+def generate_docker_compose(n_clients):
     server = Service(
         container_name="server",
         image="server:latest",
@@ -83,7 +96,7 @@ def generate_docker_compose(output_file, n_clients):
         environment={"PYTHONUNBUFFERED": "1", "LOGGING_LEVEL": "DEBUG"},
         networks=["testing_net"],
         depends_on=[],
-        volumes={"./server/config.ini": "/config.ini"}
+        volumes={"./server/config.ini": "/config.ini"},
     )
 
     client_services = [
@@ -94,28 +107,35 @@ def generate_docker_compose(output_file, n_clients):
             environment={"CLI_ID": f"{i}", "CLI_LOG_LEVEL": "DEBUG"},
             networks=["testing_net"],
             depends_on=["server"],
-            volumes={"./client/config.yaml": "/config.yaml"}
-        ) for i in range(1, n_clients + 1)
+            volumes={"./client/config.yaml": "/config.yaml"},
+        )
+        for i in range(1, n_clients + 1)
     ]
 
     network = Network(
-        network_name="testing_net",
-        driver="default",
-        subnets=["172.25.125.0/24"]
+        network_name="testing_net", driver="default", subnets=["172.25.125.0/24"]
     )
 
+    services = [server] + client_services
+
+    return services, network
+
+
+def write_to_file(output_file, services, network):
     with open(output_file, "w") as f:
         f.write(f"name: {NAME}\n")
         f.write("services:\n")
-        f.write(str(server) + '\n')
-        for client in client_services:
-            f.write(str(client) + '\n')
+        for service in services:
+            f.write(str(service) + "\n")
         f.write("networks:\n")
         f.write(str(network))
 
+
 def main():
     output_file, n_clients = get_args()
-    generate_docker_compose(output_file, n_clients)
+    services, networks = generate_docker_compose(n_clients)
+    write_to_file(output_file, services, networks)
+
 
 if __name__ == "__main__":
     main()

@@ -2,6 +2,11 @@ import socket
 import logging
 import sys
 
+from common.utils import Bet, store_bets
+
+N_FIELDS = 7
+DELIMITER = "+"
+
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -40,6 +45,29 @@ class Server:
 
         self.__cleanup()
 
+    def __decode_to_bet(self, msg):
+
+        fields = msg.split(DELIMITER)
+
+        if len(fields) != N_FIELDS:
+            logging.error(
+                "action: receive_message | result: fail | error: invalid number of fields"
+            )
+            return None
+
+        if fields[0] != "AGENCY":
+            logging.error(
+                "action: receive_message | result: fail | error: invalid message"
+            )
+            return None
+
+        try:
+            bet = Bet(*fields[1:])
+            return bet
+        except ValueError as e:
+            logging.error(f"action: receive_message | result: fail | error: {e}")
+            return None
+
     def __handle_client_connection(self, client_sock):
         """
         Read message from a specific client socket and closes the socket
@@ -58,8 +86,18 @@ class Server:
             logging.info(
                 f"action: receive_message | result: success | ip: {addr[0]} | msg: {msg}"
             )
+
+            bet = self.__decode_to_bet(msg)
+            if bet:
+                store_bets([bet])
+                logging.info(
+                    f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}"
+                )
+                client_sock.send("success\n".encode("utf-8"))
+            else:
+                client_sock.send("failure\n".encode("utf-8"))
+
             # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode("utf-8"))
 
         except OSError as _e:
             logging.error("action: receive_message | result: fail | error: {e}")

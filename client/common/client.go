@@ -4,10 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/op/go-logging"
 )
+
+const DELIMITER = "+"
+const SUCCESS_MESSAGE = "success"
 
 var log = logging.MustGetLogger("log")
 
@@ -65,29 +69,32 @@ func (c *Client) StartClientLoop() {
 	c.createClientSocket()
 
 	// TODO: Modify the send to avoid short-write
-	message := fmt.Sprintf(
-		"[CLIENT %v] %v + %v + %v + %v + %v\n",
+
+	message_params := []string{
+		"AGENCY",
 		c.config.ID,
 		c.config.Name,
 		c.config.Surname,
-		c.config.Document,
+		fmt.Sprintf("%v", c.config.Document),
 		c.config.Birthdate.Format("2006-01-02"),
-		c.config.Number,
-	)
+		fmt.Sprintf("%v", c.config.Number),
+	}
 
+	message := strings.Join(message_params, DELIMITER) + "\n"
 	fmt.Fprint(c.conn, message)
+
 	msg, err := bufio.NewReader(c.conn).ReadString('\n')
 	c.conn.Close()
 
-	if err != nil {
-		log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
+	if err != nil || msg != SUCCESS_MESSAGE+"\n" {
+		log.Errorf("action: apuesta_enviada | result: fail | dni: %v | error: %v",
 			c.config.ID,
 			err,
 		)
 		return
 	}
 
-	log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
+	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
 		c.config.ID,
 		msg,
 	)

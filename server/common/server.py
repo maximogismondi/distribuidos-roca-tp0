@@ -87,7 +87,7 @@ class Server:
 
         Stop the server
         """
-        logging.info(f"action: exit | result: in_progress | signal: {signum}")
+        # logging.info(f"action: exit | result: in_progress | signal: {signum}")
         self._running = False
 
     def __cleanup(self):

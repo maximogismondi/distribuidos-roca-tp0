@@ -98,7 +98,6 @@ func (c *Client) StartClientLoop() {
 
 func (c *Client) StopClientLoop() {
 	c.running = false
-	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }
 
 func (c *Client) cleanUp() {

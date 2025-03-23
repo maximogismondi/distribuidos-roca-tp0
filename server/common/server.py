@@ -85,9 +85,8 @@ class Server:
         """
         Stop the server
 
-        Stop the server
+        Change the running flag to False so the main loop can exit
         """
-        # logging.info(f"action: exit | result: in_progress | signal: {signum}")
         self._running = False
 
     def __cleanup(self):

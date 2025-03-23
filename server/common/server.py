@@ -87,7 +87,7 @@ class Server:
 
         Stop the server
         """
-        logging.info(f"action: receive_signal | signal: {signal.Signals(signum).name}")
+        logging.info(f"action: exit | result: in_progress | signal: {signum}")
         self._running = False
 
     def __cleanup(self):
@@ -98,7 +98,7 @@ class Server:
         """
         try:
             self._server_socket.close()
-            logging.info("action: close_server_socket | result: success")
+            logging.info("action: exit | result: success")
         except Exception as e:
-            logging.error(f"action: close_server_socket | result: fail | error: {e}")
+            logging.error(f"action: exit | result: fail | error: {e}")
         sys.exit(0)

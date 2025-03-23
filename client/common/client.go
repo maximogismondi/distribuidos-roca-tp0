@@ -98,10 +98,10 @@ func (c *Client) StartClientLoop() {
 
 func (c *Client) StopClientLoop() {
 	c.running = false
-	log.Infof("action: stop_loop | result: success | client_id: %v", c.config.ID)
+	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }
 
 func (c *Client) cleanUp() {
 	c.conn.Close()
-	log.Infof("action: cleanup | result: success | client_id: %v", c.config.ID)
+	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }

@@ -88,14 +88,14 @@ func (c *Client) StartClientLoop() {
 
 	if err != nil || msg != SUCCESS_MESSAGE+"\n" {
 		log.Errorf("action: apuesta_enviada | result: fail | dni: %v | error: %v",
-			c.config.ID,
+			c.config.Document,
 			err,
 		)
 		return
 	}
 
 	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
-		c.config.ID,
+		c.config.Document,
 		msg,
 	)
 

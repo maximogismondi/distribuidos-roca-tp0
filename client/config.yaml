@@ -7,8 +7,3 @@ log:
   level: "INFO"
 batch:
   maxAmount: 10
-NOMBRE: "Santiago Lionel"
-APELLIDO: "Lorca"
-DOCUMENTO: 30904465
-NACIMIENTO: "1999-03-17"
-NUMERO: 7574

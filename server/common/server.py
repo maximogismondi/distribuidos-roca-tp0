@@ -1,4 +1,3 @@
-import signal
 import socket
 import logging
 import sys
@@ -12,6 +11,7 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._server_socket.settimeout(1.0)
         self._running = True
+        self._first_accept_try = False
 
     def run(self):
         """
@@ -47,6 +47,10 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+
+        # Add this flag to avoid logging every accept try
+        self._first_accept_try = True
+
         try:
             # TODO: Modify the receive to avoid short-reads
             msg = client_sock.recv(1024).rstrip().decode("utf-8")
@@ -70,7 +74,10 @@ class Server:
         Then connection created is printed and returned
         """
 
-        logging.info("action: accept_connections | result: in_progress")
+        # Add this flag to avoid logging every accept try
+        if self._first_accept_try:
+            logging.info("action: accept_connections | result: in_progress")
+            self._first_accept_try = False
 
         try:
             c, addr = self._server_socket.accept()
@@ -81,7 +88,7 @@ class Server:
         except socket.timeout:
             return None
 
-    def stop(self, signum, _frame):
+    def stop(self, _signum, _frame):
         """
         Stop the server
 

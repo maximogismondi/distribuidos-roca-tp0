@@ -11,7 +11,7 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._server_socket.settimeout(1.0)
         self._running = True
-        self._first_accept_try = False
+        self._first_accept_try = True
 
     def run(self):
         """

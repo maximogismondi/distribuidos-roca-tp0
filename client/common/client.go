@@ -1,7 +1,6 @@
 package common
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"strings"
@@ -10,7 +9,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-const DELIMITER = "+"
+const BET_DELIMITER = "+"
 const SUCCESS_MESSAGE = "success"
 
 var log = logging.MustGetLogger("log")
@@ -33,7 +32,7 @@ type BetInfo struct {
 // Client Entity that encapsulates how
 type Client struct {
 	config  ClientConfig
-	conn    net.Conn
+	socket  Socket
 	running bool
 }
 
@@ -59,7 +58,7 @@ func (c *Client) createClientSocket() error {
 			err,
 		)
 	}
-	c.conn = conn
+	c.socket = NewSocket(conn)
 	return nil
 }
 
@@ -80,11 +79,26 @@ func (c *Client) StartClientLoop() {
 		fmt.Sprintf("%v", c.config.Number),
 	}
 
-	message := strings.Join(message_params, DELIMITER) + "\n"
-	fmt.Fprint(c.conn, message)
+	message := strings.Join(message_params, BET_DELIMITER)
+	err := c.socket.Write(message)
+	if err != nil {
+		log.Criticalf(
+			"action: apuesta_enviada | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+	}
 
-	msg, err := bufio.NewReader(c.conn).ReadString('\n')
-	c.conn.Close()
+	msg, err := c.socket.Read()
+	if err != nil {
+		log.Criticalf(
+			"action: apuesta_enviada | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+	}
+
+	c.socket.Close()
 
 	if err != nil || msg != SUCCESS_MESSAGE+"\n" {
 		log.Errorf("action: apuesta_enviada | result: fail | dni: %v | error: %v",
@@ -107,6 +121,6 @@ func (c *Client) StopClientLoop() {
 }
 
 func (c *Client) cleanUp() {
-	c.conn.Close()
+	c.socket.Close()
 	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }

@@ -3,6 +3,7 @@ import logging
 import sys
 
 from common.utils import Bet, store_bets
+from common.client_socket import ClientSocket
 
 N_FIELDS = 7
 DELIMITER = "+"
@@ -80,9 +81,8 @@ class Server:
         self._first_accept_try = True
 
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode("utf-8")
-            addr = client_sock.getpeername()
+            msg = client_sock.receive_message()
+            addr = client_sock.address()
             logging.info(
                 f"action: receive_message | result: success | ip: {addr[0]} | msg: {msg}"
             )
@@ -93,12 +93,11 @@ class Server:
                 logging.info(
                     f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}"
                 )
-                client_sock.send("success\n".encode("utf-8"))
+                client_sock.send_message("success")
             else:
-                client_sock.send("failure\n".encode("utf-8"))
-
-            # TODO: Modify the send to avoid short-writes
-
+                client_sock.send_message("failure")
+        except ConnectionError as e:
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         except OSError as _e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
@@ -122,7 +121,7 @@ class Server:
             logging.info(
                 f"action: accept_connections | result: success | ip: {addr[0]}"
             )
-            return c
+            return ClientSocket(c)
         except socket.timeout:
             return None
 

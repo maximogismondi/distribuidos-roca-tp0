@@ -6,7 +6,6 @@ services:
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
     volumes:
@@ -18,63 +17,6 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=1
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./client/config.yaml:/config.yaml
-
-  client2:
-    container_name: client2
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=2
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./client/config.yaml:/config.yaml
-
-  client3:
-    container_name: client3
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=3
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./client/config.yaml:/config.yaml
-
-  client4:
-    container_name: client4
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=4
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./client/config.yaml:/config.yaml
-
-  client5:
-    container_name: client5
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=5
-      - CLI_LOG_LEVEL=DEBUG
     networks:
       - testing_net
     depends_on:

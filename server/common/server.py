@@ -23,8 +23,12 @@ class Server:
         while self._running:
             try:
                 client_sock = self.__accept_new_connection()
-                if client_sock:
+
+                if self._running and client_sock:
                     self.__handle_client_connection(client_sock)
+                elif client_sock:
+                    client_sock.close()
+                    break
             except socket.timeout:
                 continue
             except OSError as e:

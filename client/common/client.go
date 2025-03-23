@@ -15,8 +15,15 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
+	Name          string
+	Surname       string
+	Document      int
+	Birthdate     time.Time
+	Number        int
+}
+
+// BetInfo Information about the bet
+type BetInfo struct {
 }
 
 // Client Entity that encapsulates how
@@ -54,44 +61,36 @@ func (c *Client) createClientSocket() error {
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
-	// There is an autoincremental msgID to identify every message sent
-	// Messages if the message amount threshold has not been surpassed
-	for msgID := 1; msgID <= c.config.LoopAmount && c.running; msgID++ {
-		// Create the connection the server in every loop iteration. Send an
-		c.createClientSocket()
+	// Create the connection the server in every loop iteration.
+	c.createClientSocket()
 
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
-			"[CLIENT %v] Message N°%v\n",
+	// TODO: Modify the send to avoid short-write
+	message := fmt.Sprintf(
+		"[CLIENT %v] %v + %v + %v + %v + %v\n",
+		c.config.ID,
+		c.config.Name,
+		c.config.Surname,
+		c.config.Document,
+		c.config.Birthdate.Format("2006-01-02"),
+		c.config.Number,
+	)
+
+	fmt.Fprint(c.conn, message)
+	msg, err := bufio.NewReader(c.conn).ReadString('\n')
+	c.conn.Close()
+
+	if err != nil {
+		log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
 			c.config.ID,
-			msgID,
+			err,
 		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-		c.conn.Close()
-
-		if err != nil {
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
-			return
-		}
-
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-			c.config.ID,
-			msg,
-		)
-
-		// Wait a time between sending one message and the next one
-		for slept := time.Duration(0); slept < c.config.LoopPeriod && c.running; slept += time.Second {
-			time.Sleep(time.Second)
-		}
+		return
 	}
 
-	if c.running {
-		log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
-	}
+	log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
+		c.config.ID,
+		msg,
+	)
 
 	c.cleanUp()
 }

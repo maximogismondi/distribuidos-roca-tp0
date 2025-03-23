@@ -40,6 +40,13 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
 
+	// Add env variables for bet configuration
+	v.BindEnv("NOMBRE")
+	v.BindEnv("APELLIDO")
+	v.BindEnv("DOCUMENTO")
+	v.BindEnv("NACIMIENTO")
+	v.BindEnv("NUMERO")
+
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't
@@ -49,10 +56,10 @@ func InitConfig() (*viper.Viper, error) {
 		fmt.Printf("Configuration could not be read from config file. Using env variables instead")
 	}
 
-	// Parse time.Duration variables and return an error if those variables cannot be parsed
+	// Parse time.Time variables and return an error if those variables cannot be parsed
 
-	if _, err := time.ParseDuration(v.GetString("loop.period")); err != nil {
-		return nil, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
+	if _, err := time.Parse("2006-01-02", v.GetString("NACIMIENTO")); err != nil {
+		return nil, errors.Wrapf(err, "Could not parse NACIMIENTO env var as time.Time.")
 	}
 
 	return v, nil
@@ -83,12 +90,11 @@ func InitLogger(logLevel string) error {
 // PrintConfig Print all the configuration parameters of the program.
 // For debugging purposes only
 func PrintConfig(v *viper.Viper) {
-	log.Infof("action: config | result: success | client_id: %s | server_address: %s | loop_amount: %v | loop_period: %v | log_level: %s",
+	log.Infof("action: config | result: success | client_id: %s | server_address: %s | dni: %d | numero: %d",
 		v.GetString("id"),
 		v.GetString("server.address"),
-		v.GetInt("loop.amount"),
-		v.GetDuration("loop.period"),
-		v.GetString("log.level"),
+		v.GetInt("DOCUMENTO"),
+		v.GetInt("NUMERO"),
 	)
 }
 
@@ -105,11 +111,17 @@ func main() {
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
+	birthDateStr := v.GetString("NACIMIENTO")
+	birthDate, _ := time.Parse("2006-01-02", birthDateStr)
+
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
-		LoopAmount:    v.GetInt("loop.amount"),
-		LoopPeriod:    v.GetDuration("loop.period"),
+		Name:          v.GetString("NOMBRE"),
+		Surname:       v.GetString("APELLIDO"),
+		Document:      v.GetInt("DOCUMENTO"),
+		Birthdate:     birthDate,
+		Number:        v.GetInt("NUMERO"),
 	}
 
 	client := common.NewClient(clientConfig)

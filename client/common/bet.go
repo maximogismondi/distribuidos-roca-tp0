@@ -32,7 +32,7 @@ func NewBet(agency int, name string, surname string, document int, birthdate str
 
 func (b *Bet) String() string {
 	params := []string{
-		"AGENCY",
+		"BET",
 		fmt.Sprintf("%v", b.Agency),
 		b.Name,
 		b.Surname,

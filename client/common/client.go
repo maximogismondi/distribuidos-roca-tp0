@@ -81,7 +81,7 @@ func (c *Client) dataToBets(filePath string) {
 	close(c.betChannel)
 }
 
-func (c *Client) buildBatch() []string {
+func (c *Client) buildBatch() string {
 	batch := []string{}
 	accumlatedBytes := 0
 
@@ -112,13 +112,11 @@ func (c *Client) buildBatch() []string {
 		accumlatedBytes += byteLength
 	}
 
-	return batch
+	return strings.Join(batch, string(BATCH_SEPARATOR))
 }
 
-func (c *Client) sendBatch(batch []string) error {
-	batchString := strings.Join(batch, string(BATCH_SEPARATOR))
-
-	if err := c.socket.Write(batchString); err != nil {
+func (c *Client) sendBatch(batch string) error {
+	if err := c.socket.Write(batch); err != nil {
 		log.Criticalf("action: apuesta_enviada | result: fail | cantidad: %v", len(batch))
 		return err
 	}
@@ -143,8 +141,10 @@ func (c *Client) StartClientLoop() {
 
 	defer c.cleanUp()
 
+	// Go routine to read the data from the file
 	go c.dataToBets(c.config.DataFilePath)
 
+	// Build and send batches until the channel is closed (no more bets)
 	for c.running {
 		batch := c.buildBatch()
 

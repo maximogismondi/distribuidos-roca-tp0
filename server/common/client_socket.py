@@ -18,7 +18,7 @@ class ClientSocket:
                 raise ConnectionError("Socket connection broken")
 
     def receive_message(self):
-        msg = bytearray()
+        msg = b""
         while True:
             chunk = self._socket.recv(1024)
             if not chunk:

@@ -2,11 +2,11 @@ import socket
 import logging
 import sys
 
-from common.utils import Bet, store_bets
+from common.utils import Bet, store_bets, from_string
 from common.client_socket import ClientSocket
 
-N_FIELDS = 7
-DELIMITER = "+"
+BATCH_SEPARATOR = "*"
+FINISH_MSG = "finish"
 
 
 class Server:
@@ -46,28 +46,25 @@ class Server:
 
         self.__cleanup()
 
-    def __decode_to_bet(self, msg):
+    def __batch_to_bets(self, batch):
+        betsStr = batch.split(BATCH_SEPARATOR)
+        bets = [None] * len(betsStr)
 
-        fields = msg.split(DELIMITER)
+        for i, betStr in enumerate(betsStr):
+            try:
+                bets[i] = from_string(betStr)
+            except ValueError as _e:
+                logging.error(
+                    f"action: apuesta_almacenada | result: fail | cantidad: {len(bets)}"
+                )
+                return []
+            except Exception as _e:
+                logging.error(
+                    f"action: apuesta_almacenada | result: fail | cantidad: {len(bets)}"
+                )
+                return []
 
-        if len(fields) != N_FIELDS:
-            logging.error(
-                "action: receive_message | result: fail | error: invalid number of fields"
-            )
-            return None
-
-        if fields[0] != "AGENCY":
-            logging.error(
-                "action: receive_message | result: fail | error: invalid message"
-            )
-            return None
-
-        try:
-            bet = Bet(*fields[1:])
-            return bet
-        except ValueError as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
-            return None
+        return bets
 
     def __handle_client_connection(self, client_sock):
         """
@@ -81,25 +78,35 @@ class Server:
         self._first_accept_try = True
 
         try:
-            msg = client_sock.receive_message()
-            addr = client_sock.address()
-            logging.info(
-                f"action: receive_message | result: success | ip: {addr[0]} | msg: {msg}"
-            )
-
-            bet = self.__decode_to_bet(msg)
-            if bet:
-                store_bets([bet])
+            while True:
+                msg = client_sock.receive_message()
+                addr = client_sock.address()
                 logging.info(
-                    f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}"
+                    f"action: receive_message | result: success | ip: {addr[0]} | msg: {msg}"
                 )
+
+                if msg == FINISH_MSG:
+                    client_sock.send_message("success")
+                    return
+
+                bets = self.__batch_to_bets(msg)
+
+                if len(bets) == 0:
+                    client_sock.send_message("failure")
+                    return
+
+                for bet in bets:
+                    store_bets([bet])
+
+                logging.info(
+                    f"action: apuesta_almacenada | result: success | cantidad: {len(bets)}"
+                )
+
                 client_sock.send_message("success")
-            else:
-                client_sock.send_message("failure")
         except ConnectionError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
-        except OSError as _e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+        except OSError as e:
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
 

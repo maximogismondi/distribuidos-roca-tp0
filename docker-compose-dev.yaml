@@ -23,7 +23,7 @@ services:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
-      - ./data/agency-1:/agency.csv
+      - ./.data/agency-1.csv:/agency.csv
 
 networks:
   testing_net:

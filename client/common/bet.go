@@ -8,10 +8,10 @@ import (
 
 const BET_SEPARATOR = "+"
 const CSV_SEPARATOR = ","
-const NUMBER_OF_FIELDS = 6
+const NUMBER_OF_FIELDS = 5
 
 type Bet struct {
-	Agency    int
+	Agency    string
 	Name      string
 	Surname   string
 	Document  int
@@ -19,7 +19,7 @@ type Bet struct {
 	Number    int
 }
 
-func NewBet(agency int, name string, surname string, document int, birthdate string, number int) *Bet {
+func NewBet(agency string, name string, surname string, document int, birthdate string, number int) *Bet {
 	return &Bet{
 		Agency:    agency,
 		Name:      name,
@@ -44,35 +44,29 @@ func (b *Bet) String() string {
 	return strings.Join(params, BET_SEPARATOR)
 }
 
-func FromCSVLine(betString string) (Bet, error) {
+func FromCSVLine(betString string, agency string) (Bet, error) {
 	params := strings.Split(betString, CSV_SEPARATOR)
 
 	if len(params) != NUMBER_OF_FIELDS {
 		return Bet{}, fmt.Errorf("invalid number of fields in bet string")
 	}
 
-	agency, err := strconv.Atoi(params[0])
-
-	if err != nil {
-		return Bet{}, fmt.Errorf("invalid agency field")
-	}
-
-	document, err := strconv.Atoi(params[3])
+	document, err := strconv.Atoi(params[2])
 	if err != nil {
 		return Bet{}, fmt.Errorf("invalid document field")
 	}
 
-	number, err := strconv.Atoi(params[5])
+	number, err := strconv.Atoi(params[4])
 	if err != nil {
 		return Bet{}, fmt.Errorf("invalid number field")
 	}
 
 	return Bet{
 		Agency:    agency,
-		Name:      params[1],
-		Surname:   params[2],
+		Name:      params[0],
+		Surname:   params[1],
 		Document:  document,
-		Birthdate: params[4],
+		Birthdate: params[3],
 		Number:    number,
 	}, nil
 }

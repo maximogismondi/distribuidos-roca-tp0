@@ -2,7 +2,6 @@ package common
 
 import (
 	"bufio"
-	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -11,6 +10,7 @@ import (
 )
 
 const BATCH_SEPARATOR = '*'
+const FINISH_MESSAGE = "finish"
 const SUCCESS_MESSAGE = "success"
 
 const MAX_BATCH_BYTES = 8*1024 - 1 // 8kB - 1 (comunicator delimiter)
@@ -27,21 +27,31 @@ type ClientConfig struct {
 
 // Client Entity that encapsulates how
 type Client struct {
-	config     ClientConfig
-	socket     Socket
-	betChannel chan Bet
-	nextBet    string
-	running    bool
+	config   ClientConfig
+	socket   Socket
+	bets     chan Bet
+	freeBets chan struct{}
+	done     chan struct{}
+	nextBet  string
+	running  bool
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
 func NewClient(config ClientConfig) *Client {
 	client := &Client{
-		config:     config,
-		betChannel: make(chan Bet, config.BatchAmount),
-		running:    true,
+		config:   config,
+		bets:     make(chan Bet, config.BatchAmount),
+		freeBets: make(chan struct{}, config.BatchAmount),
+		done:     make(chan struct{}),
+		running:  true,
 	}
+
+	// Fill the freeBets channel with the amount of bets
+	for i := 0; i < config.BatchAmount; i++ {
+		client.freeBets <- struct{}{}
+	}
+
 	return client
 }
 
@@ -61,27 +71,37 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-func (c *Client) dataToBets(filePath string) {
-	file, err := os.Open(filePath)
+func (c *Client) readBets() {
+	file, err := os.Open(c.config.DataFilePath)
+
 	if err != nil {
-		close(c.betChannel)
+		close(c.bets)
 		return
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
+
+	for scanner.Scan() && c.running {
 		line := scanner.Text()
-		bet, err := FromCSVLine(line)
+		bet, err := FromCSVLine(line, c.config.ID)
 		if err != nil {
+			log.Errorf("Error parsing line: %v", line)
 			continue
 		}
-		c.betChannel <- bet
+
+		select {
+		case <-c.freeBets:
+			c.bets <- bet
+		case <-c.done:
+			close(c.bets)
+			return
+		}
 	}
-	close(c.betChannel)
+	close(c.bets)
 }
 
-func (c *Client) buildBatch() string {
+func (c *Client) buildBatch() []string {
 	batch := []string{}
 	accumlatedBytes := 0
 
@@ -92,10 +112,12 @@ func (c *Client) buildBatch() string {
 	}
 
 	for len(batch) < c.config.BatchAmount {
-		bet, ok := <-c.betChannel
+		bet, ok := <-c.bets
 		if !ok {
 			break
 		}
+
+		c.freeBets <- struct{}{}
 		betStr := bet.String()
 		byteLength := len(betStr)
 
@@ -112,22 +134,35 @@ func (c *Client) buildBatch() string {
 		accumlatedBytes += byteLength
 	}
 
-	return strings.Join(batch, string(BATCH_SEPARATOR))
+	return batch
 }
 
-func (c *Client) sendBatch(batch string) error {
-	if err := c.socket.Write(batch); err != nil {
+func (c *Client) sendBatch(batch []string) error {
+	log.Debugf("Sending batch: %v", batch)
+
+	batchStr := strings.Join(batch, string(BATCH_SEPARATOR))
+
+	if err := c.socket.Write(batchStr); err != nil {
 		log.Criticalf("action: apuesta_enviada | result: fail | cantidad: %v", len(batch))
 		return err
 	}
 
-	msg, err := c.socket.Read()
-	if err != nil || msg != SUCCESS_MESSAGE {
-		log.Criticalf("action: apuesta_enviada | result: fail | cantidad: %v", len(batch))
-		return fmt.Errorf("send failed or bad response")
+	return nil
+}
+
+func (c *Client) waitForServerResponse() (string, error) {
+	response, err := c.socket.Read()
+	if err != nil {
+		return "", err
 	}
 
-	log.Infof("action: apuesta_enviada | result: success | cantidad: %v", len(batch))
+	return response, nil
+}
+
+func (c *Client) sendFinishMessage() error {
+	if err := c.socket.Write(FINISH_MESSAGE); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -139,10 +174,8 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	defer c.cleanUp()
-
 	// Go routine to read the data from the file
-	go c.dataToBets(c.config.DataFilePath)
+	go c.readBets()
 
 	// Build and send batches until the channel is closed (no more bets)
 	for c.running {
@@ -150,13 +183,37 @@ func (c *Client) StartClientLoop() {
 
 		if len(batch) == 0 {
 			break
-		}
 
+		}
 		err := c.sendBatch(batch)
 		if err != nil {
 			break
 		}
+
+		response, err := c.waitForServerResponse()
+
+		if err != nil {
+			log.Criticalf("action: apuesta_enviada | result: fail | cantidad: %v", len(batch))
+			break
+		}
+
+		if response != SUCCESS_MESSAGE {
+			log.Criticalf("action: apuesta_enviada | result: fail | cantidad: %v", len(batch))
+			break
+		}
 	}
+
+	c.sendFinishMessage()
+	response, err := c.waitForServerResponse()
+	if err != nil {
+		log.Criticalf("action: finish | result: fail")
+	} else if response != SUCCESS_MESSAGE {
+		log.Criticalf("action: finish | result: fail")
+	} else {
+		log.Infof("action: finish | result: success")
+	}
+
+	c.cleanUp()
 }
 
 func (c *Client) StopClientLoop() {
@@ -164,7 +221,8 @@ func (c *Client) StopClientLoop() {
 }
 
 func (c *Client) cleanUp() {
+	close(c.done)
+	close(c.freeBets)
 	c.socket.Close()
-	close(c.betChannel)
 	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }

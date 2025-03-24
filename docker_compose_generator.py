@@ -109,7 +109,7 @@ def generate_docker_compose(n_clients):
             depends_on=["server"],
             volumes={
                 "./client/config.yaml": "/config.yaml",
-                f"./data/agency-{i}": "/agency.csv",
+                f"./.data/agency-{i}.csv": "/agency.csv",
             },
         )
         for i in range(1, n_clients + 1)

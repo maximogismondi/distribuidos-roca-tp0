@@ -23,7 +23,7 @@ class ClientSocket:
             chunk = self._socket.recv(1024)
             if not chunk:
                 break
-            msg.extend(chunk)
+            msg += chunk
 
             if chunk.endswith(COMMUNICATION_DELIMITER.encode("utf-8")):
                 break

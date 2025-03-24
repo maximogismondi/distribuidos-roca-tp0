@@ -104,17 +104,13 @@ def generate_docker_compose(n_clients):
             container_name=f"client{i}",
             image="client:latest",
             entrypoint="/client",
-            environment={
-                "CLI_ID": f"{i}",
-                "CLI_NOMBRE": "Santiago Lionel",
-                "CLI_APELLIDO": "Lorca",
-                "CLI_DOCUMENTO": "30904465",
-                "CLI_NACIMIENTO": "1999-03-17",
-                "CLI_NUMERO": "7574",
-            },
+            environment={"CLI_ID": f"{i}"},
             networks=["testing_net"],
             depends_on=["server"],
-            volumes={"./client/config.yaml": "/config.yaml"},
+            volumes={
+                "./client/config.yaml": "/config.yaml",
+                f"./data/agency-{i}": "/agency.csv",
+            },
         )
         for i in range(1, n_clients + 1)
     ]

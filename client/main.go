@@ -6,14 +6,14 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/op/go-logging"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
 )
+
+const DATA_FILE_PATH = "/agency.csv"
 
 var log = logging.MustGetLogger("log")
 
@@ -39,13 +39,7 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
-
-	// Add env variables for bet configuration
-	v.BindEnv("NOMBRE")
-	v.BindEnv("APELLIDO")
-	v.BindEnv("DOCUMENTO")
-	v.BindEnv("NACIMIENTO")
-	v.BindEnv("NUMERO")
+	v.BindEnv("batch", "maxAmount")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -54,12 +48,6 @@ func InitConfig() (*viper.Viper, error) {
 	v.SetConfigFile("./config.yaml")
 	if err := v.ReadInConfig(); err != nil {
 		fmt.Printf("Configuration could not be read from config file. Using env variables instead")
-	}
-
-	// Parse time.Time variables and return an error if those variables cannot be parsed
-
-	if _, err := time.Parse("2006-01-02", v.GetString("NACIMIENTO")); err != nil {
-		return nil, errors.Wrapf(err, "Could not parse NACIMIENTO env var as time.Time.")
 	}
 
 	return v, nil
@@ -90,11 +78,9 @@ func InitLogger(logLevel string) error {
 // PrintConfig Print all the configuration parameters of the program.
 // For debugging purposes only
 func PrintConfig(v *viper.Viper) {
-	log.Infof("action: config | result: success | client_id: %s | server_address: %s | dni: %d | numero: %d",
+	log.Infof("action: config | result: success | client_id: %s | server_address: %s",
 		v.GetString("id"),
 		v.GetString("server.address"),
-		v.GetInt("DOCUMENTO"),
-		v.GetInt("NUMERO"),
 	)
 }
 
@@ -111,17 +97,11 @@ func main() {
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
-	birthDateStr := v.GetString("NACIMIENTO")
-	birthDate, _ := time.Parse("2006-01-02", birthDateStr)
-
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
-		Name:          v.GetString("NOMBRE"),
-		Surname:       v.GetString("APELLIDO"),
-		Document:      v.GetInt("DOCUMENTO"),
-		Birthdate:     birthDate,
-		Number:        v.GetInt("NUMERO"),
+		BatchAmount:   v.GetInt("batch.maxAmount"),
+		DataFilePath:  DATA_FILE_PATH,
 	}
 
 	client := common.NewClient(clientConfig)

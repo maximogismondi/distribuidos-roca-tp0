@@ -25,7 +25,7 @@ func (s *Socket) Read() (string, error) {
 		return "", err
 	}
 
-	return message, nil
+	return message[:len(message)-1], nil
 }
 
 func (s *Socket) Write(message string) error {

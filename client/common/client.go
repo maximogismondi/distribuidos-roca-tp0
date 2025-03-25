@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/op/go-logging"
 )
@@ -269,5 +270,8 @@ func (c *Client) cleanUp() {
 	close(c.done)
 	close(c.freeBets)
 	c.socket.Close()
+
+	time.Sleep(1 * time.Second)
+
 	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }

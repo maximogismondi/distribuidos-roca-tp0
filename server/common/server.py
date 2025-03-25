@@ -59,6 +59,9 @@ class Server:
             results = self.__winners_by_agency()
             self.__send_results_to_agencies(results)
 
+            self._clients_ready = {}
+            self.run()
+
         self.__cleanup()
 
     def __winners_by_agency(self):

@@ -273,5 +273,5 @@ func (c *Client) cleanUp() {
 
 	time.Sleep(1 * time.Second)
 
-	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
+	// log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 }

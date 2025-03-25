@@ -192,7 +192,7 @@ class Server:
         """
         try:
             self._server_socket.close()
-            logging.info("action: exit | result: success")
+            # logging.info("action: exit | result: success")
         except Exception as e:
             logging.error(f"action: exit | result: fail | error: {e}")
         sys.exit(0)

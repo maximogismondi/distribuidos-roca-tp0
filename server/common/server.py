@@ -95,8 +95,7 @@ class Server:
                     client_sock.send_message("failure")
                     return
 
-                for bet in bets:
-                    store_bets([bet])
+                store_bets(bets)
 
                 logging.info(
                     f"action: apuesta_almacenada | result: success | cantidad: {len(bets)}"

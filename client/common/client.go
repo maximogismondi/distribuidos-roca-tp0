@@ -239,7 +239,7 @@ func (c *Client) StartClientLoop() {
 	err = c.sendFinishMessage()
 
 	if err != nil {
-		log.Criticalf("action: finish1 | result: fail")
+		log.Criticalf("action: finish | result: fail")
 	}
 
 	err = c.sendRequestResultsMessage()
@@ -251,7 +251,7 @@ func (c *Client) StartClientLoop() {
 	response, err := c.waitForServerResponse()
 
 	if err != nil {
-		log.Criticalf("action: finish2 | result: fail")
+		log.Criticalf("action: finish | result: fail")
 	}
 
 	err = c.processResults(response)

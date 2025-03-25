@@ -4,7 +4,7 @@ COMMUNICATION_DELIMITER = "\n"
 class ClientSocket:
     def __init__(self, socket):
         self._socket = socket
-        self._overflown = ""
+        self._overflow = ""
 
     def send_message(self, msg):
         msg += COMMUNICATION_DELIMITER

@@ -121,6 +121,8 @@ class Server:
             while True:
                 msg = client_sock.receive_message()
 
+                logging.debug(f"Received message: {msg}")
+
                 if msg == FINISH_MSG:
                     msg = client_sock.receive_message()
 

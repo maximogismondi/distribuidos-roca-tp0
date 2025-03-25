@@ -55,12 +55,12 @@ class Server:
                 bets[i] = from_string(betStr)
             except ValueError as _e:
                 logging.error(
-                    f"action: apuesta_almacenada | result: fail | cantidad: {len(bets)}"
+                    f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}"
                 )
                 return []
             except Exception as _e:
                 logging.error(
-                    f"action: apuesta_almacenada | result: fail | cantidad: {len(bets)}"
+                    f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}"
                 )
                 return []
 
@@ -94,7 +94,7 @@ class Server:
                 store_bets(bets)
 
                 logging.info(
-                    f"action: apuesta_almacenada | result: success | cantidad: {len(bets)}"
+                    f"action: apuesta_recibida | result: success | cantidad: {len(bets)}"
                 )
 
                 client_sock.send_message("success")

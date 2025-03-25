@@ -80,10 +80,6 @@ class Server:
         try:
             while True:
                 msg = client_sock.receive_message()
-                addr = client_sock.address()
-                logging.info(
-                    f"action: receive_message | result: success | ip: {addr[0]} | msg: {msg}"
-                )
 
                 if msg == FINISH_MSG:
                     client_sock.send_message("success")

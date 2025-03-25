@@ -4,6 +4,7 @@ COMMUNICATION_DELIMITER = "\n"
 class ClientSocket:
     def __init__(self, socket):
         self._socket = socket
+        self._overflown = ""
 
     def send_message(self, msg):
         msg += COMMUNICATION_DELIMITER
@@ -18,17 +19,21 @@ class ClientSocket:
                 raise ConnectionError("Socket connection broken")
 
     def receive_message(self):
-        msg = b""
-        while True:
+        while COMMUNICATION_DELIMITER not in self._overflow:
             chunk = self._socket.recv(1024)
             if not chunk:
-                break
-            msg += chunk
+                # No more data, return whatever is left (could be empty)
+                if self._overflow:
+                    msg = self._overflow
+                    self._overflow = ""
+                    return msg
+                else:
+                    return ""
+            self._overflow += chunk.decode("utf-8")
 
-            if chunk.endswith(COMMUNICATION_DELIMITER.encode("utf-8")):
-                break
-
-        return msg.decode("utf-8").rstrip(COMMUNICATION_DELIMITER)
+        # Extract the first full message and keep the rest in overflow
+        message, self._overflow = self._overflow.split(COMMUNICATION_DELIMITER, 1)
+        return message
 
     def address(self):
         return self._socket.getpeername()

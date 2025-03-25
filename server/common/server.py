@@ -124,8 +124,12 @@ class Server:
             while True:
                 msg = client_sock.receive_message()
 
+                logging.debug(f"Received message: {msg}")
+
                 if msg == FINISH_MSG:
                     msg = client_sock.receive_message()
+
+                    logging.debug(f"Received message2: {msg}")
 
                     if msg == REQUEST_RESULT_MESSAGE:
                         self._clients_ready[agency] = client_sock

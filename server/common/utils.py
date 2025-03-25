@@ -11,7 +11,7 @@ LOTTERY_WINNER_NUMBER = 7574
 N_FIELDS = 7
 BET_SEPARATOR = "+"
 
-BET_OPERATION = "BET"
+BET_OPERATION = "new_bet"
 
 """ A lottery bet registry. """
 

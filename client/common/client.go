@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -10,8 +11,12 @@ import (
 )
 
 const BATCH_SEPARATOR = '*'
+const WINNERS_SEPARATOR = ','
+
 const FINISH_MESSAGE = "finish"
 const SUCCESS_MESSAGE = "success"
+const REQUEST_RESULTS_MESSAGE = "request"
+const WINNERS_MESSAGE = "winners"
 
 const MAX_BATCH_BYTES = 8*1024 - 1 // 8kB - 1 (comunicator delimiter)
 
@@ -166,6 +171,31 @@ func (c *Client) sendFinishMessage() error {
 	return nil
 }
 
+func (c *Client) sendRequestResultsMessage() error {
+	if err := c.socket.Write(REQUEST_RESULTS_MESSAGE); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) processResults(results string) error {
+
+	fields := strings.Split(results, string(WINNERS_SEPARATOR))
+
+	if len(fields) == 0 {
+		return fmt.Errorf("invalid number of fields in results")
+	}
+
+	if fields[0] != WINNERS_MESSAGE {
+		return fmt.Errorf("invalid message type")
+	}
+
+	numberWinners := len(fields) - 1
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", numberWinners)
+
+	return nil
+}
+
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
 	// Create the connection the server in every loop iteration.
@@ -173,6 +203,8 @@ func (c *Client) StartClientLoop() {
 	if err != nil {
 		return
 	}
+
+	defer c.cleanUp()
 
 	// Go routine to read the data from the file
 	go c.readBets()
@@ -203,17 +235,30 @@ func (c *Client) StartClientLoop() {
 		}
 	}
 
-	c.sendFinishMessage()
-	response, err := c.waitForServerResponse()
+	err = c.sendFinishMessage()
+
 	if err != nil {
-		log.Criticalf("action: finish | result: fail")
-	} else if response != SUCCESS_MESSAGE {
-		log.Criticalf("action: finish | result: fail")
-	} else {
-		log.Infof("action: finish | result: success")
+		log.Criticalf("action: finish1 | result: fail")
 	}
 
-	c.cleanUp()
+	err = c.sendRequestResultsMessage()
+
+	if err != nil {
+		log.Criticalf("action: consulta_ganadores | result: fail")
+	}
+
+	response, err := c.waitForServerResponse()
+
+	if err != nil {
+		log.Criticalf("action: finish2 | result: fail")
+	}
+
+	err = c.processResults(response)
+
+	if err != nil {
+		log.Criticalf("action: finish | result: fail")
+	}
+
 }
 
 func (c *Client) StopClientLoop() {

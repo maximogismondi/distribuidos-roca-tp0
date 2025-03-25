@@ -93,7 +93,7 @@ def generate_docker_compose(n_clients):
         container_name="server",
         image="server:latest",
         entrypoint="python3 /main.py",
-        environment={"PYTHONUNBUFFERED": "1"},
+        environment={"PYTHONUNBUFFERED": "1", "NUMBER_AGENCIES": n_clients},
         networks=["testing_net"],
         depends_on=[],
         volumes={"./server/config.ini": "/config.ini"},

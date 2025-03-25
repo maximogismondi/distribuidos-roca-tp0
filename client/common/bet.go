@@ -9,6 +9,7 @@ import (
 const BET_SEPARATOR = "+"
 const CSV_SEPARATOR = ","
 const NUMBER_OF_FIELDS = 5
+const NEW_BET_OPERATION = "new_bet"
 
 type Bet struct {
 	Agency    string
@@ -32,7 +33,7 @@ func NewBet(agency string, name string, surname string, document int, birthdate 
 
 func (b *Bet) String() string {
 	params := []string{
-		"BET",
+		NEW_BET_OPERATION,
 		fmt.Sprintf("%v", b.Agency),
 		b.Name,
 		b.Surname,

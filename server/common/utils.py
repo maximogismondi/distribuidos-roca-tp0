@@ -1,6 +1,5 @@
 import csv
 import datetime
-import time
 
 
 """ Bets storage location. """

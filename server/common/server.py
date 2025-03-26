@@ -1,5 +1,6 @@
 import socket
 import logging
+import threading
 
 from common.utils import store_bets, from_string, load_bets, has_won
 from common.agency_socket import AgencySocket
@@ -28,6 +29,7 @@ class Server:
         self._number_agencies = number_agencies
         self._agencies_ready = set()
         self._winners_by_agency = {}
+        self._lock = threading.Lock()
 
     def run(self):
         """
@@ -40,22 +42,11 @@ class Server:
             try:
                 agency_socket = self.__accept_new_connection()
 
-                if (
-                    self._running
-                    and agency_socket
-                    and agency_socket.agency_id() not in self._agencies_ready
-                ):
-                    self.__handle_new_agency(agency_socket)
-
-                if (
-                    self._running
-                    and agency_socket
-                    and agency_socket.agency_id() in self._agencies_ready
-                ):
-                    self.__handle_ready_agency(agency_socket)
-
-                if agency_socket:
-                    agency_socket.close()
+                if self._running and agency_socket:
+                    t = threading.Thread(
+                        target=self.__handle_agency, args=(agency_socket,)
+                    )
+                    t.start()
 
             except socket.timeout:
                 continue
@@ -144,15 +135,17 @@ class Server:
 
                 if msg == FINISH_MSG:
                     self._agencies_ready.add(agency_socket.agency_id())
+                    self.__handle_ready_agency(agency_socket)
                     return
 
                 bets = self.__batch_to_bets(msg)
 
                 if len(bets) == 0:
                     agency_socket.send_message(FAILURE_MSG)
-                    break
+                    return
 
-                store_bets(bets)
+                with self._lock:
+                    store_bets(bets)
 
                 logging.info(
                     f"action: apuesta_recibida | result: success | cantidad: {len(bets)}"
@@ -164,7 +157,22 @@ class Server:
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
 
-        agency_socket.close()
+    def __handle_agency(self, agency_socket):
+        """
+        Handle the communication with an agency
+
+        This function is called in a new thread to handle the communication
+        with an agency. The agency is identified by the agency_socket
+        """
+
+        try:
+            if agency_socket.agency_id() in self._agencies_ready:
+                self.__handle_ready_agency(agency_socket)
+            else:
+                self.__handle_new_agency(agency_socket)
+        finally:
+            if agency_socket:
+                agency_socket.close()
 
     def __accept_new_connection(self):
         """

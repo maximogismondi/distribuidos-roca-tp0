@@ -6,17 +6,29 @@ import (
 )
 
 const COMMUNICATION_DELIMITER = '\n'
+const AGENCY_IDENTIFICATION_DELIMITER = ' '
+const AGENCY_IDENTIFICATION_MESSAGE = "AGENCY"
 
 type Socket struct {
 	conn   net.Conn
 	reader *bufio.Reader
 }
 
-func NewSocket(c net.Conn) Socket {
-	return Socket{
+func NewSocket(c net.Conn, agencyId string) (Socket, error) {
+
+	socket := Socket{
 		conn:   c,
 		reader: bufio.NewReader(c),
 	}
+
+	startMessage := AGENCY_IDENTIFICATION_MESSAGE + string(AGENCY_IDENTIFICATION_DELIMITER) + agencyId
+	err := socket.Write(startMessage)
+
+	if err != nil {
+		return socket, err
+	}
+
+	return socket, nil
 }
 
 func (s *Socket) Read() (string, error) {

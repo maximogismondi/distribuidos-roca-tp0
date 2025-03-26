@@ -1,10 +1,36 @@
 COMMUNICATION_DELIMITER = "\n"
+AGENCY_IDENTIFICATION_DELIMITER = " "
+AGENCY_IDENTIFICATION_MESSAGE = "AGENCY"
 
 
-class ClientSocket:
+class AgencySocket:
     def __init__(self, socket):
         self._socket = socket
+        self._agency_id = None
         self._overflow = ""
+
+    def new_socket(socket):
+        agency_socket = AgencySocket(socket)
+
+        msg = agency_socket.receive_message()
+
+        fields = msg.split(AGENCY_IDENTIFICATION_DELIMITER)
+
+        if len(fields) != 2:
+            return None
+
+        if fields[0] != AGENCY_IDENTIFICATION_MESSAGE:
+            return None
+
+        if not fields[1].isnumeric():
+            return None
+
+        agency_socket._agency_id = int(fields[1])
+
+        return agency_socket
+
+    def agency_id(self):
+        return self._agency_id
 
     def send_message(self, msg):
         msg += COMMUNICATION_DELIMITER

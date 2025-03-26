@@ -1,9 +1,8 @@
 import socket
 import logging
-import sys
 
 from common.utils import store_bets, from_string, load_bets, has_won
-from common.client_socket import ClientSocket
+from common.agency_socket import AgencySocket
 
 BATCH_SEPARATOR = "*"
 DOCUMENT_SEPARATOR = ","
@@ -14,6 +13,7 @@ FAILURE_MSG = "failure"
 FINISH_MSG = "finish"
 REQUEST_RESULT_MESSAGE = "request"
 WINNERS_MESSAGE = "winners"
+NOT_READY_MESSAGE = "not_ready"
 
 
 class Server:
@@ -26,24 +26,37 @@ class Server:
         self._running = True
         self._first_accept_try = True
         self._number_agencies = number_agencies
-        self._clients_ready = {}
+        self._agencies_ready = set()
+        self._winners_by_agency = {}
 
     def run(self):
         """
         Server that accept a new connections and establishes a
-        communication with a client. After client with communucation
+        communication with an agency. After agency with communucation
         finishes, servers starts to accept new connections again.
         """
 
-        while self._running and len(self._clients_ready) < self._number_agencies:
+        while self._running:
             try:
-                client_sock = self.__accept_new_connection()
+                agency_socket = self.__accept_new_connection()
 
-                if self._running and client_sock:
-                    self.__handle_client_connection(client_sock)
-                elif client_sock:
-                    client_sock.close()
-                    break
+                if (
+                    self._running
+                    and agency_socket
+                    and agency_socket.agency_id() not in self._agencies_ready
+                ):
+                    self.__handle_new_agency(agency_socket)
+
+                if (
+                    self._running
+                    and agency_socket
+                    and agency_socket.agency_id() in self._agencies_ready
+                ):
+                    self.__handle_ready_agency(agency_socket)
+
+                if agency_socket:
+                    agency_socket.close()
+
             except socket.timeout:
                 continue
             except OSError as e:
@@ -53,40 +66,28 @@ class Server:
                     )
                 break
 
-        if self._running and len(self._clients_ready) == self._number_agencies:
-            logging.info("action: sorteo | result: success")
-
-            results = self.__winners_by_agency()
-            self.__send_results_to_agencies(results)
-
-            self._clients_ready = {}
-            self.run()
-
-        self.__cleanup()
-
-    def __winners_by_agency(self):
+    def __draw_winners(self):
         """
-        Get winners document by agency
-
-        Returns a dictionary with the winners document by agency
+        Draw the winning number for the lottery. Then store the winning bets for each agency
         """
 
-        winners = {agency: [] for agency in self._clients_ready.keys()}
+        self._winners_by_agency = {agency: [] for agency in self._agencies_ready}
 
         for bet in load_bets():
             if has_won(bet):
-                winners[bet.agency].append(bet.document)
+                self._winners_by_agency[bet.agency].append(bet.document)
 
-        return winners
+        logging.info("action: sorteo | result: success")
 
-    def __send_results_to_agencies(self, winners):
+    def __send_winners_results(self, agency_socket):
         """
-        Send winners to the clients
+        Send winners to the agencies
         """
 
-        for agency, client_sock in self._clients_ready.items():
-            resultsStr = DOCUMENT_SEPARATOR.join([WINNERS_MESSAGE] + winners[agency])
-            client_sock.send_message(resultsStr)
+        resultsStr = DOCUMENT_SEPARATOR.join(
+            [WINNERS_MESSAGE] + self._winners_by_agency[agency_socket.agency_id()]
+        )
+        agency_socket.send_message(resultsStr)
 
     def __batch_to_bets(self, batch):
         betsStr = batch.split(BATCH_SEPARATOR)
@@ -108,44 +109,48 @@ class Server:
 
         return bets
 
-    def __handle_client_connection(self, client_sock):
+    def __handle_ready_agency(self, agency_socket):
         """
-        Read message from a specific client socket and closes the socket
+        Handle the communication with an agency that has finished sending bets
+        """
+        msg = agency_socket.receive_message()
 
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
+        if msg != REQUEST_RESULT_MESSAGE:
+            agency_socket.send_message(FAILURE_MSG)
+            return
+
+        if len(self._agencies_ready) == self._number_agencies:
+            if not self._winners_by_agency:
+                self.__draw_winners()
+
+            self.__send_winners_results(agency_socket)
+        else:
+            agency_socket.send_message(NOT_READY_MESSAGE)
+
+    def __handle_new_agency(self, agency_socket):
+        """
+        Read message from a specific agency and store the bets
+
+        If a problem arises in the communication with the agency, the
+        agency socket will also be closed
         """
 
         # Add this flag to avoid logging every accept try
         self._first_accept_try = True
 
         try:
-            agency = None
             while True:
-                msg = client_sock.receive_message()
-
-                logging.debug(f"Received message: {msg}")
+                msg = agency_socket.receive_message()
 
                 if msg == FINISH_MSG:
-                    msg = client_sock.receive_message()
-
-                    logging.debug(f"Received message2: {msg}")
-
-                    if msg == REQUEST_RESULT_MESSAGE:
-                        self._clients_ready[agency] = client_sock
-                        return
-                    else:
-                        client_sock.send_message(FAILURE_MSG)
-                        break
+                    self._agencies_ready.add(agency_socket.agency_id())
+                    return
 
                 bets = self.__batch_to_bets(msg)
 
                 if len(bets) == 0:
-                    client_sock.send_message(FAILURE_MSG)
-                    return
-
-                if agency is None:
-                    agency = bets[0].agency
+                    agency_socket.send_message(FAILURE_MSG)
+                    break
 
                 store_bets(bets)
 
@@ -153,19 +158,19 @@ class Server:
                     f"action: apuesta_recibida | result: success | cantidad: {len(bets)}"
                 )
 
-                client_sock.send_message(SUCCESS_MSG)
+                agency_socket.send_message(SUCCESS_MSG)
         except ConnectionError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
 
-        client_sock.close()
+        agency_socket.close()
 
     def __accept_new_connection(self):
         """
         Accept new connections
 
-        Function blocks until a connection to a client is made.
+        Function blocks until a connection to an agency is made.
         Then connection created is printed and returned
         """
 
@@ -176,10 +181,16 @@ class Server:
 
         try:
             c, addr = self._server_socket.accept()
+            agency_socket = AgencySocket.new_socket(c)
+
             logging.info(
                 f"action: accept_connections | result: success | ip: {addr[0]}"
             )
-            return ClientSocket(c)
+
+            if not agency_socket:
+                return None
+
+            return agency_socket
         except socket.timeout:
             return None
 
@@ -199,7 +210,5 @@ class Server:
         """
         try:
             self._server_socket.close()
-            # logging.info("action: exit | result: success")
         except Exception as e:
             logging.error(f"action: exit | result: fail | error: {e}")
-        sys.exit(0)

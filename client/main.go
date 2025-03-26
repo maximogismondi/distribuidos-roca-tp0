@@ -97,25 +97,27 @@ func main() {
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
-	clientConfig := common.ClientConfig{
+	agencyConfig := common.AgencyConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
 		BatchAmount:   v.GetInt("batch.maxAmount"),
 		DataFilePath:  DATA_FILE_PATH,
 	}
 
-	client := common.NewClient(clientConfig)
+	done := make(chan struct{})
+	agency := common.NewAgency(agencyConfig, done)
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM)
 
-	// use an anonymous goroutine to listen for signals and stop the client loop
 	go func() {
-		signalRecieved := <-signalChannel
-
-		log.Infof("action: signal | result: success | client_id: %s | signal: %v", clientConfig.ID, signalRecieved)
-		client.StopClientLoop()
+		select {
+		case signalRecieved := <-signalChannel:
+			log.Infof("action: signal | result: success | client_id: %s | signal: %v", agencyConfig.ID, signalRecieved)
+		case <-done:
+		}
+		agency.StopAgencyLoop()
 	}()
 
-	client.StartClientLoop()
+	agency.StartAgencyLoop()
 }

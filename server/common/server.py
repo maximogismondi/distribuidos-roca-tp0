@@ -77,6 +77,17 @@ class Server:
 
         logging.info("action: sorteo | result: success")
 
+    def __wait_for_message(self, agency_socket):
+        while self._running:
+            try:
+                msg = agency_socket.receive_message()
+                return msg
+            except socket.timeout:
+                continue
+            except OSError as e:
+                logging.error(f"action: receive_message | result: fail | error: {e}")
+                return
+
     def __send_winners_results(self, agency_socket):
         """
         Send winners to the agencies
@@ -111,7 +122,8 @@ class Server:
         """
         Handle the communication with an agency that has finished sending bets
         """
-        msg = agency_socket.receive_message()
+
+        msg = self.__wait_for_message(agency_socket)
 
         if msg != REQUEST_RESULT_MESSAGE:
             agency_socket.send_message(FAILURE_MSG)
@@ -144,7 +156,7 @@ class Server:
 
         try:
             while self._running:
-                msg = agency_socket.receive_message()
+                msg = self.__wait_for_message(agency_socket)
 
                 if msg == FINISH_MSG:
                     with self._lock:

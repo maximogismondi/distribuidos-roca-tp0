@@ -10,6 +10,7 @@ class AgencySocket:
         self._overflow = ""
 
     def new_socket(socket):
+        socket.settimeout(1.0)
         agency_socket = AgencySocket(socket)
 
         msg = agency_socket.receive_message()

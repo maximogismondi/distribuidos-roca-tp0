@@ -110,10 +110,16 @@ class Server:
             agency_socket.send_message(FAILURE_MSG)
             return
 
-        if len(self._agencies_ready) == self._number_agencies:
-            if not self._winners_by_agency:
-                self.__draw_winners()
+        all_ready = False
 
+        with self._lock:
+            all_ready = len(self._agencies_ready) == self._number_agencies
+
+            if all_ready:
+                if not self._winners_by_agency:
+                    self.__draw_winners()
+
+        if all_ready:
             self.__send_winners_results(agency_socket)
         else:
             agency_socket.send_message(NOT_READY_MESSAGE)
@@ -134,7 +140,8 @@ class Server:
                 msg = agency_socket.receive_message()
 
                 if msg == FINISH_MSG:
-                    self._agencies_ready.add(agency_socket.agency_id())
+                    with self._lock:
+                        self._agencies_ready.add(agency_socket.agency_id())
                     self.__handle_ready_agency(agency_socket)
                     return
 

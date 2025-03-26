@@ -30,6 +30,7 @@ class Server:
         self._agencies_ready = set()
         self._winners_by_agency = {}
         self._lock = threading.Lock()
+        self._threads = {}
 
     def run(self):
         """
@@ -47,6 +48,7 @@ class Server:
                         target=self.__handle_agency, args=(agency_socket,)
                     )
                     t.start()
+                    self._threads[agency_socket.agency_id()] = t
 
             except socket.timeout:
                 continue
@@ -56,6 +58,11 @@ class Server:
                         f"action: accept_connections | result: fail | error: {e}"
                     )
                 break
+
+        for t in self._threads.values():
+            t.join()
+
+        self.__cleanup()
 
     def __draw_winners(self):
         """
@@ -136,7 +143,7 @@ class Server:
         self._first_accept_try = True
 
         try:
-            while True:
+            while self._running:
                 msg = agency_socket.receive_message()
 
                 if msg == FINISH_MSG:

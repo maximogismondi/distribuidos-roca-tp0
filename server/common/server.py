@@ -2,35 +2,44 @@ import socket
 import logging
 import threading
 
-from common.utils import store_bets, from_string, load_bets, has_won
-from common.agency_socket import AgencySocket
+from common.utils import store_bets, load_bets, has_won
 
-BATCH_SEPARATOR = "*"
-DOCUMENT_SEPARATOR = ","
+from server.common.comunication.server_socket import ServerSocket
+from server.common.comunication.client_socket import ClientSocket
 
-SUCCESS_MSG = "success"
-FAILURE_MSG = "failure"
-
-FINISH_MSG = "finish"
-REQUEST_RESULT_MESSAGE = "request"
-WINNERS_MESSAGE = "winners"
-NOT_READY_MESSAGE = "not_ready"
+from server.common.comunication.agency_message import (
+    ServerHeader,
+    decode_identification,
+    encode_message,
+    encode_winners_message,
+)
+from server.common.comunication.server_message import (
+    BATCH_SEPARATOR,
+    AgencyHeader,
+    decode_message,
+)
 
 
 class Server:
+    _server_socket: ServerSocket
+    _running: bool
+    _first_accept_try: bool
+    _number_agencies: int
+    _connected_clients: set[tuple[threading.Thread, ClientSocket]]
+    _agencies_ready: set[int]
+    _winners_by_agency: dict[int, list[str]]
+    _lock: threading.Lock
+
     def __init__(self, port, listen_backlog, number_agencies):
         # Initialize server socket
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.bind(("", port))
-        self._server_socket.listen(listen_backlog)
-        self._server_socket.settimeout(1.0)
+        self._server_socket = ServerSocket(("", port), listen_backlog)
         self._running = True
         self._first_accept_try = True
         self._number_agencies = number_agencies
+        self._connected_clients = set()
         self._agencies_ready = set()
         self._winners_by_agency = {}
         self._lock = threading.Lock()
-        self._connected_agencies = []
 
     def run(self):
         """
@@ -41,17 +50,19 @@ class Server:
 
         while self._running:
             try:
-                agency_socket = self.__accept_new_connection()
+                if self._first_accept_try:
+                    logging.info("action: accept_connections | result: in_progress")
+                    self._first_accept_try = False
 
-                if self._running and agency_socket:
-                    t = threading.Thread(
-                        target=self.__handle_agency, args=(agency_socket,)
-                    )
-                    t.start()
-                    self._connected_agencies.append((t, agency_socket))
+                client_socket: ClientSocket = self._server_socket.accept()
+
+                t = threading.Thread(target=self.__handle_client, args=(client_socket,))
+                t.start()
+
+                self._connected_clients.add((t, client_socket))
+                self._first_accept_try = True
 
                 self.__close_finished_connections()
-
             except socket.timeout:
                 continue
             except OSError as e:
@@ -61,27 +72,94 @@ class Server:
                     )
                 break
 
-        for t, s in self._connected_agencies:
-            s.close()
-            t.join()
-
         self.__cleanup()
 
-    def __close_finished_connections(self):
+    def __handle_client(self, client_socket: ClientSocket) -> None:
         """
-        Clean finished connections
+        Handle the communication with an agency
+
+        This function is called in a new thread to handle the communication
+        with an agency. The agency is identified by the agency_socket
         """
+        try:
+            msg: str = self.__wait_for_message(client_socket)
+            agency_id = decode_identification(msg)
 
-        conected_agencies = []
+            while self._running:
+                msg: str = self.__wait_for_message(client_socket)
+                header, payload = decode_message(msg)
 
-        for t, s in self._connected_agencies:
-            if t.is_alive():
-                conected_agencies.append((t, s))
-            else:
-                s.close()
-                t.join()
+                if header == AgencyHeader.BET_BATCH:
+                    self.__handle_bet_batch(client_socket, payload)
+                elif header == AgencyHeader.FINISH_BETTING:
+                    self.__handle_finish_betting(agency_id)
+                elif header == AgencyHeader.REQUEST_RESULTS:
+                    self.__handle_request_result(client_socket, agency_id)
+                elif header == AgencyHeader.SHUTDOWN:
+                    return
 
-        self._connected_agencies = conected_agencies
+        except ValueError as _:
+            logging.error(
+                "action: receive_message | result: fail | error: invalid message format"
+            )
+        except OSError as e:
+            logging.error(f"action: receive_message | result: fail | error: {e}")
+        finally:
+            client_socket.close()
+
+    def __handle_bet_batch(self, client_socket: ClientSocket, payload: str) -> None:
+        try:
+            bets = self.__batch_to_bets(payload)
+
+            if len(bets) == 0:
+                client_socket.send_message(encode_message(ServerHeader.FAILURE))
+                return
+
+            with self._lock:
+                store_bets(bets)
+
+            logging.info(
+                f"action: apuesta_recibida | result: success | cantidad: {len(bets)}"
+            )
+
+            client_socket.send_message(encode_message(ServerHeader.SUCCESS))
+        except ValueError as _:
+            n_bets: int = len(payload.split(BATCH_SEPARATOR))
+            logging.error(
+                f"action: apuesta_recibida | result: fail | cantidad: {n_bets}"
+            )
+
+            client_socket.send_message(encode_message(ServerHeader.FAILURE))
+
+    def __handle_finish_betting(self, agency_id: int) -> None:
+        with self._lock:
+            self._agencies_ready.add(agency_id)
+
+    def __handle_request_result(
+        self, client_socket: ClientSocket, agency_id: int
+    ) -> None:
+        with self._lock:
+            if agency_id not in self._agencies_ready:
+                client_socket.send_message(encode_message(ServerHeader.FAILURE))
+                return
+
+            if len(self._agencies_ready) < self._number_agencies:
+                client_socket.send_message(encode_message(ServerHeader.NOT_READY))
+                return
+
+            if not self._winners_by_agency:
+                self.__draw_winners()
+
+            self.__socket.send_message(
+                encode_winners_message(self._winners_by_agency[agency_id])
+            )
+
+    def __wait_for_message(self, client_socket: ClientSocket) -> str:
+        while self._running:
+            try:
+                return client_socket.receive_message()
+            except socket.timeout:
+                continue
 
     def __draw_winners(self):
         """
@@ -96,171 +174,28 @@ class Server:
 
         logging.info("action: sorteo | result: success")
 
-    def __wait_for_message(self, agency_socket):
-        while self._running:
-            try:
-                msg = agency_socket.receive_message()
-                return msg
-            except socket.timeout:
-                continue
-            except OSError as e:
-                logging.error(f"action: receive_message | result: fail | error: {e}")
-                return
+    def __close_finished_connections(self) -> None:
+        connected_clients: set[tuple[threading.Thread, ClientSocket]] = set()
 
-    def __send_winners_results(self, agency_socket):
-        """
-        Send winners to the agencies
-        """
-
-        resultsStr = DOCUMENT_SEPARATOR.join(
-            [WINNERS_MESSAGE] + self._winners_by_agency[agency_socket.agency_id()]
-        )
-        agency_socket.send_message(resultsStr)
-
-    def __batch_to_bets(self, batch):
-        betsStr = batch.split(BATCH_SEPARATOR)
-        bets = [None] * len(betsStr)
-
-        for i, betStr in enumerate(betsStr):
-            try:
-                bets[i] = from_string(betStr)
-            except ValueError as _e:
-                logging.error(
-                    f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}"
-                )
-                return []
-            except Exception as _e:
-                logging.error(
-                    f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}"
-                )
-                return []
-
-        return bets
-
-    def __handle_ready_agency(self, agency_socket):
-        """
-        Handle the communication with an agency that has finished sending bets
-        """
-
-        msg = self.__wait_for_message(agency_socket)
-
-        if msg != REQUEST_RESULT_MESSAGE:
-            agency_socket.send_message(FAILURE_MSG)
-            return
-
-        all_ready = False
-
-        with self._lock:
-            all_ready = len(self._agencies_ready) == self._number_agencies
-
-            if all_ready:
-                if not self._winners_by_agency:
-                    self.__draw_winners()
-
-        if all_ready:
-            self.__send_winners_results(agency_socket)
-        else:
-            agency_socket.send_message(NOT_READY_MESSAGE)
-
-    def __handle_new_agency(self, agency_socket):
-        """
-        Read message from a specific agency and store the bets
-
-        If a problem arises in the communication with the agency, the
-        agency socket will also be closed
-        """
-
-        # Add this flag to avoid logging every accept try
-        self._first_accept_try = True
-
-        try:
-            while self._running:
-                msg = self.__wait_for_message(agency_socket)
-
-                if msg == FINISH_MSG:
-                    with self._lock:
-                        self._agencies_ready.add(agency_socket.agency_id())
-                    self.__handle_ready_agency(agency_socket)
-                    return
-
-                bets = self.__batch_to_bets(msg)
-
-                if len(bets) == 0:
-                    agency_socket.send_message(FAILURE_MSG)
-                    return
-
-                with self._lock:
-                    store_bets(bets)
-
-                logging.info(
-                    f"action: apuesta_recibida | result: success | cantidad: {len(bets)}"
-                )
-
-                agency_socket.send_message(SUCCESS_MSG)
-        except ConnectionError as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
-        except OSError as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
-
-    def __handle_agency(self, agency_socket):
-        """
-        Handle the communication with an agency
-
-        This function is called in a new thread to handle the communication
-        with an agency. The agency is identified by the agency_socket
-        """
-
-        try:
-            if agency_socket.agency_id() in self._agencies_ready:
-                self.__handle_ready_agency(agency_socket)
+        for t, s in self._connected_clients:
+            if t.is_alive():
+                connected_clients.add((t, s))
             else:
-                self.__handle_new_agency(agency_socket)
-        finally:
-            agency_socket.close()
+                s.close()
+                t.join()
 
-    def __accept_new_connection(self):
-        """
-        Accept new connections
+        self._connected_clients = connected_clients
 
-        Function blocks until a connection to an agency is made.
-        Then connection created is printed and returned
-        """
-
-        # Add this flag to avoid logging every accept try
-        if self._first_accept_try:
-            logging.info("action: accept_connections | result: in_progress")
-            self._first_accept_try = False
-
+    def __cleanup(self) -> None:
         try:
-            c, addr = self._server_socket.accept()
-            agency_socket = AgencySocket.new_socket(c)
+            for t, s in self._connected_clients:
+                s.close()
+                t.join()
 
-            logging.info(
-                f"action: accept_connections | result: success | ip: {addr[0]}"
-            )
-
-            if not agency_socket:
-                return None
-
-            return agency_socket
-        except socket.timeout:
-            return None
-
-    def stop(self, _signum, _frame):
-        """
-        Stop the server
-
-        Change the running flag to False so the main loop can exit
-        """
-        self._running = False
-
-    def __cleanup(self):
-        """
-        Cleanup server resources
-
-        Close server socket
-        """
-        try:
             self._server_socket.close()
         except Exception as e:
             logging.error(f"action: exit | result: fail | error: {e}")
+
+    def stop(self, _signum, _frame) -> None:
+        self._running = False
+        self._server_socket.close()

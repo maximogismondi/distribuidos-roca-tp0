@@ -7,10 +7,6 @@ STORAGE_FILEPATH = "./bets.csv"
 """ Simulated winner number in the lottery contest. """
 LOTTERY_WINNER_NUMBER = 7574
 
-N_FIELDS = 7
-BET_SEPARATOR = "+"
-
-BET_OPERATION = "new_bet"
 
 """ A lottery bet registry. """
 
@@ -78,28 +74,3 @@ def load_bets() -> list[Bet]:
         reader = csv.reader(file, quoting=csv.QUOTE_MINIMAL)
         for row in reader:
             yield Bet(row[0], row[1], row[2], row[3], row[4], row[5])
-
-
-"""
-"""
-
-
-def from_string(line) -> Bet:
-    fields = line.split(BET_SEPARATOR)
-
-    if fields[0] != BET_OPERATION:
-        raise ValueError("Invalid operation")
-
-    if len(fields) != N_FIELDS:
-        raise ValueError("Invalid number of fields")
-
-    if not fields[1].isnumeric():
-        raise ValueError("Invalid agency")
-
-    if not fields[4].isnumeric():
-        raise ValueError("Invalid document")
-
-    if not fields[6].isnumeric():
-        raise ValueError("Invalid number")
-
-    return Bet(*fields[1:])

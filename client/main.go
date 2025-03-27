@@ -116,8 +116,8 @@ func main() {
 			log.Infof("action: signal | result: success | client_id: %s | signal: %v", agencyConfig.ID, signalRecieved)
 		case <-done:
 		}
-		agency.StopAgencyLoop()
+		agency.Stop()
 	}()
 
-	agency.StartAgencyLoop()
+	agency.Run()
 }

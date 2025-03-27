@@ -1,7 +1,9 @@
 package common
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -19,8 +21,8 @@ type Bet struct {
 	Number    int
 }
 
-func NewBet(agency string, name string, surname string, document int, birthdate string, number int) *Bet {
-	return &Bet{
+func NewBet(agency string, name string, surname string, document int, birthdate string, number int) Bet {
+	return Bet{
 		Agency:    agency,
 		Name:      name,
 		Surname:   surname,
@@ -30,7 +32,7 @@ func NewBet(agency string, name string, surname string, document int, birthdate 
 	}
 }
 
-func (b *Bet) String() string {
+func (b *Bet) Encode() string {
 	params := []string{
 		fmt.Sprintf("%v", b.Agency),
 		b.Name,
@@ -43,7 +45,7 @@ func (b *Bet) String() string {
 	return strings.Join(params, BET_SEPARATOR)
 }
 
-func FromCSVLine(betString string, agency string) (Bet, error) {
+func fromCSVLine(betString string, agency string) (Bet, error) {
 	params := strings.Split(betString, CSV_SEPARATOR)
 
 	if len(params) != NUMBER_OF_FIELDS {
@@ -68,4 +70,40 @@ func FromCSVLine(betString string, agency string) (Bet, error) {
 		Birthdate: params[3],
 		Number:    number,
 	}, nil
+}
+
+func ReadBetsFromFile(
+	filePath string,
+	agencyId string,
+	bets chan Bet,
+	freeBets chan struct{},
+	done chan struct{},
+) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		close(bets)
+		return
+	}
+	defer file.Close()
+	defer close(bets)
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		bet, err := fromCSVLine(line, agencyId)
+
+		if err != nil {
+			log.Errorf("Error parsing line: %v", line)
+			continue
+		}
+
+		// Wait until there is a free bet slot or the agency is stopped
+		select {
+		case <-freeBets:
+			bets <- bet
+		case <-done:
+			return
+		}
+	}
 }

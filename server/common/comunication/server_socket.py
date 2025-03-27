@@ -26,4 +26,4 @@ class ServerSocket:
         return ClientSocket(c, addr)
 
     def close(self) -> None:
-        self.socket.close()
+        self._socket.close()

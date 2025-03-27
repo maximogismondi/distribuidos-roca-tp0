@@ -4,15 +4,15 @@ import threading
 
 from common.utils import Bet, store_bets, load_bets, has_won
 
-from common.comunication.server_socket import ServerSocket
-from common.comunication.client_socket import ClientSocket
+from common.communication.server_socket import ServerSocket
+from common.communication.client_socket import ClientSocket
 
-from common.comunication.server_message import (
+from common.communication.server_message import (
     ServerHeader,
     encode_message,
     encode_winners_message,
 )
-from common.comunication.agency_message import (
+from common.communication.agency_message import (
     BATCH_SEPARATOR,
     AgencyHeader,
     decode_bet_batch,

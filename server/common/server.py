@@ -135,6 +135,9 @@ class Server:
         with self._lock:
             self._agencies_ready.add(agency_id)
 
+            if len(self._agencies_ready) == self._number_agencies:
+                self.__draw_winners()
+
     def __handle_request_result(
         self, client_socket: ClientSocket, agency_id: int
     ) -> None:
@@ -143,12 +146,12 @@ class Server:
                 client_socket.send_message(encode_message(ServerHeader.FAILURE))
                 return
 
-            if len(self._agencies_ready) < self._number_agencies:
+            if (
+                len(self._agencies_ready) < self._number_agencies
+                or not self._winners_by_agency
+            ):
                 client_socket.send_message(encode_message(ServerHeader.NOT_READY))
                 return
-
-            if not self._winners_by_agency:
-                self.__draw_winners()
 
             client_socket.send_message(
                 encode_winners_message(self._winners_by_agency[agency_id])

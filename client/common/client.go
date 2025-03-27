@@ -62,7 +62,7 @@ func (a *Agency) Run() {
 	defer a.cleanUp()
 
 	// Go routine to read the data from the file
-	go ReadBetsFromFile(a.config.DataFilePath, a.config.ID, a.bets, a.freeBets, a.done)
+	go ReadBetsFromFile(a.config.DataFilePath, a.bets, a.freeBets, a.done)
 
 	// Build and send batches until the channel is closed (no more bets)
 	err = a.sendBets()

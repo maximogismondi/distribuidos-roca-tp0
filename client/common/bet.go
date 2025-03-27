@@ -21,9 +21,8 @@ type Bet struct {
 	Number    int
 }
 
-func NewBet(agency string, name string, surname string, document int, birthdate string, number int) Bet {
+func NewBet(name string, surname string, document int, birthdate string, number int) Bet {
 	return Bet{
-		Agency:    agency,
 		Name:      name,
 		Surname:   surname,
 		Document:  document,
@@ -34,7 +33,6 @@ func NewBet(agency string, name string, surname string, document int, birthdate 
 
 func (b *Bet) Encode() string {
 	params := []string{
-		fmt.Sprintf("%v", b.Agency),
 		b.Name,
 		b.Surname,
 		fmt.Sprintf("%v", b.Document),
@@ -45,7 +43,7 @@ func (b *Bet) Encode() string {
 	return strings.Join(params, BET_SEPARATOR)
 }
 
-func fromCSVLine(betString string, agency string) (Bet, error) {
+func fromCSVLine(betString string) (Bet, error) {
 	params := strings.Split(betString, CSV_SEPARATOR)
 
 	if len(params) != NUMBER_OF_FIELDS {
@@ -63,7 +61,6 @@ func fromCSVLine(betString string, agency string) (Bet, error) {
 	}
 
 	return Bet{
-		Agency:    agency,
 		Name:      params[0],
 		Surname:   params[1],
 		Document:  document,
@@ -74,7 +71,6 @@ func fromCSVLine(betString string, agency string) (Bet, error) {
 
 func ReadBetsFromFile(
 	filePath string,
-	agencyId string,
 	bets chan Bet,
 	freeBets chan struct{},
 	done chan struct{},
@@ -91,7 +87,7 @@ func ReadBetsFromFile(
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		bet, err := fromCSVLine(line, agencyId)
+		bet, err := fromCSVLine(line)
 
 		if err != nil {
 			log.Errorf("Error parsing line: %v", line)

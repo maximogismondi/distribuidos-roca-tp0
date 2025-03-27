@@ -84,14 +84,14 @@ class Server:
         """
         try:
             msg: str = self.__wait_for_message(client_socket)
-            agency_id = decode_identification_message(msg)
+            agency_id: int = decode_identification_message(msg)
 
             while self._running:
                 msg: str = self.__wait_for_message(client_socket)
                 header, payload = decode_message(msg)
 
                 if header == AgencyHeader.BET_BATCH:
-                    self.__handle_bet_batch(client_socket, payload)
+                    self.__handle_bet_batch(client_socket, payload, agency_id)
                 elif header == AgencyHeader.FINISH_BETTING:
                     self.__handle_finish_betting(agency_id)
                 elif header == AgencyHeader.REQUEST_RESULTS:
@@ -107,9 +107,11 @@ class Server:
         finally:
             client_socket.close()
 
-    def __handle_bet_batch(self, client_socket: ClientSocket, payload: str) -> None:
+    def __handle_bet_batch(
+        self, client_socket: ClientSocket, payload: str, agency_id: int
+    ):
         try:
-            bets: list[Bet] = decode_bet_batch(payload)
+            bets: list[Bet] = decode_bet_batch(agency_id, payload)
 
             if len(bets) == 0:
                 client_socket.send_message(encode_message(ServerHeader.FAILURE))

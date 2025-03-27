@@ -4,18 +4,18 @@ import threading
 
 from common.utils import store_bets, load_bets, has_won
 
-from server.common.comunication.server_socket import ServerSocket
-from server.common.comunication.client_socket import ClientSocket
+from common.comunication.server_socket import ServerSocket
+from common.comunication.client_socket import ClientSocket
 
-from server.common.comunication.agency_message import (
+from common.comunication.server_message import (
     ServerHeader,
-    decode_identification,
     encode_message,
     encode_winners_message,
 )
-from server.common.comunication.server_message import (
+from common.comunication.agency_message import (
     BATCH_SEPARATOR,
     AgencyHeader,
+    decode_identification_message,
     decode_message,
 )
 
@@ -83,7 +83,7 @@ class Server:
         """
         try:
             msg: str = self.__wait_for_message(client_socket)
-            agency_id = decode_identification(msg)
+            agency_id = decode_identification_message(msg)
 
             while self._running:
                 msg: str = self.__wait_for_message(client_socket)

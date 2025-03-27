@@ -2,7 +2,7 @@ import logging
 import socket
 from typing import Tuple
 
-from server.common.comunication.client_socket import ClientSocket
+from common.comunication.client_socket import ClientSocket
 
 BLOCKING_TIMEOUT = 1.0
 

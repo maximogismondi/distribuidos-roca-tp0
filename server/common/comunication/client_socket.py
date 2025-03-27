@@ -1,10 +1,9 @@
 import socket
 
-COMMUNICATION_DELIMITER = "\n"
 CHUNK_SIZE = 1024
+SOCKET_TIMEOUT = 1.0
 
-AGENCY_IDENTIFICATION_DELIMITER = " "
-AGENCY_IDENTIFICATION_MESSAGE = "AGENCY"
+COMMUNICATION_DELIMITER = "\n"
 
 
 class ClientSocket:
@@ -14,7 +13,7 @@ class ClientSocket:
     address: tuple[str, int]
 
     def __init__(self, socket: socket.socket, address: tuple[str, int]) -> None:
-        socket.settimeout(1.0)
+        socket.settimeout(SOCKET_TIMEOUT)
 
         self._socket = socket
         self._listen_overflow = ""

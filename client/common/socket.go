@@ -6,8 +6,8 @@ import (
 )
 
 const COMMUNICATION_DELIMITER = '\n'
-const AGENCY_IDENTIFICATION_DELIMITER = ' '
-const AGENCY_IDENTIFICATION_MESSAGE = "AGENCY"
+const AGENCY_IDENTIFICATION_DELIMITER = ':'
+const AGENCY_IDENTIFICATION_MESSAGE = "agency"
 
 type Socket struct {
 	conn   net.Conn

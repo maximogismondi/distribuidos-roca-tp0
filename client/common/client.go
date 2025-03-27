@@ -11,14 +11,17 @@ import (
 	"github.com/op/go-logging"
 )
 
+const HEADER_DELIMITER = ':'
 const BATCH_SEPARATOR = '*'
 const WINNERS_SEPARATOR = ','
 
+const BET_BATCH_MESSAGE = "bet_batch"
 const FINISH_MESSAGE = "finish"
-const SUCCESS_MESSAGE = "success"
-const REQUEST_RESULTS_MESSAGE = "request"
+const REQUEST_RESULTS_MESSAGE = "request_results"
+
 const WINNERS_MESSAGE = "winners"
 const NOT_READY_MESSAGE = "not_ready"
+const SUCCESS_MESSAGE = "success"
 
 const MAX_BATCH_BYTES = 8*1024 - 1 // 8kB - 1 (comunicator delimiter)
 
@@ -160,7 +163,7 @@ func (a *Agency) buildBatch() []string {
 }
 
 func (a *Agency) sendBatch(batch []string) error {
-	batchStr := strings.Join(batch, string(BATCH_SEPARATOR))
+	batchStr := fmt.Sprintf("%v%c%v", BET_BATCH_MESSAGE, HEADER_DELIMITER, strings.Join(batch, string(BATCH_SEPARATOR)))
 
 	if err := a.socket.Write(batchStr); err != nil {
 		log.Criticalf("action: apuesta_enviada | result: fail | cantidad: %v", len(batch))

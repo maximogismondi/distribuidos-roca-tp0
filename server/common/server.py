@@ -2,7 +2,7 @@ import socket
 import logging
 import threading
 
-from common.utils import store_bets, load_bets, has_won
+from common.utils import Bet, store_bets, load_bets, has_won
 
 from common.comunication.server_socket import ServerSocket
 from common.comunication.client_socket import ClientSocket
@@ -15,6 +15,7 @@ from common.comunication.server_message import (
 from common.comunication.agency_message import (
     BATCH_SEPARATOR,
     AgencyHeader,
+    decode_bet_batch,
     decode_identification_message,
     decode_message,
 )
@@ -95,13 +96,12 @@ class Server:
                     self.__handle_finish_betting(agency_id)
                 elif header == AgencyHeader.REQUEST_RESULTS:
                     self.__handle_request_result(client_socket, agency_id)
+                    return
                 elif header == AgencyHeader.SHUTDOWN:
                     return
 
-        except ValueError as _:
-            logging.error(
-                "action: receive_message | result: fail | error: invalid message format"
-            )
+        except ValueError as e:
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
@@ -109,7 +109,7 @@ class Server:
 
     def __handle_bet_batch(self, client_socket: ClientSocket, payload: str) -> None:
         try:
-            bets = self.__batch_to_bets(payload)
+            bets: list[Bet] = decode_bet_batch(payload)
 
             if len(bets) == 0:
                 client_socket.send_message(encode_message(ServerHeader.FAILURE))
@@ -150,7 +150,7 @@ class Server:
             if not self._winners_by_agency:
                 self.__draw_winners()
 
-            self.__socket.send_message(
+            client_socket.send_message(
                 encode_winners_message(self._winners_by_agency[agency_id])
             )
 

@@ -33,14 +33,7 @@ def decode_identification_message(msg: str) -> int:
 
 def decode_message(msg: str) -> Tuple[AgencyHeader, str]:
 
-    fields: Tuple[str, str] = msg.split(HEARDER_SEPARATOR, 1)
-
-    if len(fields) != 2:
-        raise ValueError("Invalid message format")
-
-    header: str = fields[0]
-    payload: str = fields[1]
-
+    header, payload = msg.split(HEARDER_SEPARATOR, 1)
     return AgencyHeader(header), payload
 
 

@@ -184,14 +184,14 @@ func (a *Agency) waitForServerResponse() (string, error) {
 
 func (a *Agency) sendFinishMessage() error {
 
-	if err := a.socket.Write(FINISH_MESSAGE); err != nil {
+	if err := a.socket.Write(fmt.Sprintf("%v%c", FINISH_MESSAGE, HEADER_DELIMITER)); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (a *Agency) sendRequestResultsMessage() error {
-	if err := a.socket.Write(REQUEST_RESULTS_MESSAGE); err != nil {
+	if err := a.socket.Write(fmt.Sprintf("%v%c", REQUEST_RESULTS_MESSAGE, HEADER_DELIMITER)); err != nil {
 		return err
 	}
 
@@ -199,21 +199,24 @@ func (a *Agency) sendRequestResultsMessage() error {
 }
 
 func (a *Agency) processResults(results string) (bool, error) {
-	fields := strings.Split(results, string(WINNERS_SEPARATOR))
 
-	if len(fields) == 0 {
-		return false, fmt.Errorf("invalid number of fields in results")
+	if results == NOT_READY_MESSAGE {
+		return false, nil
 	}
 
-	if fields[0] == NOT_READY_MESSAGE {
-		return false, nil
+	fields := strings.Split(results, string(HEADER_DELIMITER))
+
+	if len(fields) < 2 {
+		return false, fmt.Errorf("invalid number of fields in results")
 	}
 
 	if fields[0] != WINNERS_MESSAGE {
 		return false, fmt.Errorf("invalid message type in results")
 	}
 
-	numberWinners := len(fields) - 1
+	winners := strings.Split(fields[1], string(WINNERS_SEPARATOR))
+	numberWinners := len(winners)
+
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", numberWinners)
 
 	return true, nil

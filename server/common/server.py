@@ -31,7 +31,7 @@ class Server:
     _winners_by_agency: dict[int, list[str]]
     _lock: threading.Lock
 
-    def __init__(self, port, listen_backlog, number_agencies):
+    def __init__(self, port: int, listen_backlog: int, number_agencies: int) -> None:
         # Initialize server socket
         self._server_socket = ServerSocket(("", port), listen_backlog)
         self._running = True
@@ -161,6 +161,8 @@ class Server:
             except socket.timeout:
                 continue
 
+        return ""
+
     def __draw_winners(self):
         """
         Draw the winning number for the lottery. Then store the winning bets for each agency
@@ -196,6 +198,6 @@ class Server:
         except Exception as e:
             logging.error(f"action: exit | result: fail | error: {e}")
 
-    def stop(self, _signum, _frame) -> None:
+    def stop(self, _signum: int, _frame: str) -> None:
         self._running = False
         self._server_socket.close()

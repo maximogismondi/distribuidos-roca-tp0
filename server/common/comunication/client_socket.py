@@ -19,7 +19,7 @@ class ClientSocket:
         self._listen_overflow = ""
         self.address = address
 
-    def send_message(self, msg) -> None:
+    def send_message(self, msg: str) -> None:
         msg += COMMUNICATION_DELIMITER
 
         msg_bytes: bytes = msg.encode("utf-8")

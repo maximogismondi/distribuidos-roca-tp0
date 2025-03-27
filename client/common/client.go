@@ -199,15 +199,14 @@ func (a *Agency) sendRequestResultsMessage() error {
 }
 
 func (a *Agency) processResults(results string) (bool, error) {
-
-	if results == NOT_READY_MESSAGE {
-		return false, nil
-	}
-
 	fields := strings.Split(results, string(HEADER_DELIMITER))
 
-	if len(fields) < 2 {
-		return false, fmt.Errorf("invalid number of fields in results")
+	if len(fields) == 0 {
+		return false, fmt.Errorf("invalid message format in results")
+	}
+
+	if fields[0] == NOT_READY_MESSAGE {
+		return false, nil
 	}
 
 	if fields[0] != WINNERS_MESSAGE {
@@ -216,6 +215,10 @@ func (a *Agency) processResults(results string) (bool, error) {
 
 	winners := strings.Split(fields[1], string(WINNERS_SEPARATOR))
 	numberWinners := len(winners)
+
+	if winners[0] == "" {
+		numberWinners = 0
+	}
 
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", numberWinners)
 
@@ -243,7 +246,14 @@ func (a *Agency) sendBets() error {
 			return err
 		}
 
-		if response != SUCCESS_MESSAGE {
+		fields := strings.Split(response, string(HEADER_DELIMITER))
+
+		if len(fields) == 0 {
+			log.Criticalf("action: apuesta_enviada | result: fail | cantidad: %v", len(batch))
+			return fmt.Errorf("invalid message format in response")
+		}
+
+		if fields[0] != SUCCESS_MESSAGE {
 			log.Criticalf("action: apuesta_enviada | result: fail | cantidad: %v", len(batch))
 			return fmt.Errorf("server response was not success")
 		}

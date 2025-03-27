@@ -16,7 +16,4 @@ def encode_winners_message(winners: list[str]) -> str:
 
 
 def encode_message(header: ServerHeader, payload: str = "") -> str:
-    if payload == "":
-        return header.value
-
     return f"{header.value}{HEARDER_SEPARATOR}{payload}"

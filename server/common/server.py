@@ -65,6 +65,7 @@ class Server:
 
                 self.__close_finished_connections()
             except socket.timeout:
+                self.__close_finished_connections()
                 continue
             except OSError as e:
                 if self._running:

@@ -13,7 +13,7 @@ WORKDIR /build/
 # Just copying the necessary files to build the binary
 COPY client/ ./client/
 COPY vendor/ ./vendor/
-COPY go.mod go.mod ./
+COPY go.mod go.sum ./
 
 # CGO_ENABLED must be disabled to run go binary in Alpine
 RUN CGO_ENABLED=0 GOOS=linux go build -mod vendor -o bin/client github.com/7574-sistemas-distribuidos/docker-compose-init/client

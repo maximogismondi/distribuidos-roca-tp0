@@ -276,7 +276,7 @@ Hasta ahora el protocolo funciona como un stop-and-wait, es decir, el cliente en
 El mensaje enviado por el cliente es de la forma:
 
 ```txt
-AGENCY<id_cliente>++<nombre>+<apellido>+<dni>+<nacimiento>+<numero>\n
+AGENCY+<id_cliente>+<nombre>+<apellido>+<dni>+<nacimiento>+<numero>\n
 ```
 
 Por otro lado, el servidor recibe el mensaje, lo procesa y lo almacena en una estructura de datos. Luego, responde al cliente con un mensaje de confirmación según el resultado del almacenamiento.
@@ -413,10 +413,10 @@ El protocolo final de comunicación cuenta de los siguientes mensajes:
 ##### Cliente -> Servidor
 
 * `agency:<id_cliente>\n`: mensaje de identificación de la agencia de quiniela.
-* `bet_batch:<apuesta_1>+<apuesta_2>+...+<apuesta_n>\n`: mensaje de batch de apuestas.
+* `bet_batch:<apuesta_1>*+*<apuesta_2>*+*...*+*<apuesta_n>\n`: mensaje de batch de apuestas.
   * `<apuesta_i>`: `<nombre>+<apellido>+<dni>+<nacimiento>+<numero>`
-* `finish\n`: mensaje de finalización de envío de apuestas.
-* `request_results\n`: mensaje de solicitud de ganadores.
+* `finish:\n`: mensaje de finalización de envío de apuestas.
+* `request_results:\n`: mensaje de solicitud de ganadores.
 
 ##### Servidor -> Cliente
 

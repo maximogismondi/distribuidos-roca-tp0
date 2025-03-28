@@ -66,7 +66,7 @@ func (a *Agency) Run() {
 
 	// Build and send batches until the channel is closed (no more bets)
 	err = a.sendBets()
-	if err != nil {
+	if err != nil || !a.running {
 		return
 	}
 
@@ -74,6 +74,10 @@ func (a *Agency) Run() {
 	err = a.sendFinishMessage()
 	if err != nil {
 		log.Criticalf("action: finish | result: fail")
+		return
+	}
+
+	if !a.running {
 		return
 	}
 
@@ -88,6 +92,7 @@ func (a *Agency) Run() {
 
 func (a *Agency) Stop() {
 	a.running = false
+	a.disconnectFromServer()
 }
 
 func (a *Agency) connectToServer() error {
